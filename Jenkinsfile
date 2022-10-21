@@ -1,64 +1,87 @@
 pipeline {
-
   agent none
-
-
-  stages{
-      stage('Build'){
-          agent{
-            docker{
+  stages {
+    stage('Build') {
+      parallel {
+        stage('Build') {
+          agent {
+            docker {
               image 'python:2.7.16-slim'
               args '--user root'
             }
+
           }
-          steps{
+          steps {
             echo 'Compiling vote app'
-            dir('vote'){
+            dir(path: 'vote') {
               sh 'pip install -r requirements.txt'
             }
+
           }
+        }
+
+        stage('test') {
+          steps {
+            sleep 1
+          }
+        }
 
       }
-      stage('Unit Test'){
-          agent{
-            docker{
+    }
+
+    stage('Unit Test') {
+      parallel {
+        stage('Unit Test') {
+          agent {
+            docker {
               image 'python:2.7.16-slim'
               args '--user root'
             }
+
           }
-          steps{
+          steps {
             echo 'Running Unit Tests on vote app'
-            dir('vote'){
+            dir(path: 'vote') {
               sh 'pip install -r requirements.txt'
               sh 'nosetests -v'
             }
-          }
-      }
-      stage('Docker BnP'){
-          agent any
-	      when {
-		 branch 'main'
-	      }
-          steps{
-            echo 'Packaging vote app with docker'
-            script{
-              docker.withRegistry('https://index.docker.io/v1/', 'dockerlogin') {
-                  def voteImage = docker.build("bharathraj45/vote:v${env.BUILD_ID}", "./vote")
-                  voteImage.push()
-                  voteImage.push("dev")
-	          voteImage.push("latest")
-              }
-            }
-          }
-      }
 
-  }
+          }
+        }
 
-  post{
-    always{
-        echo 'Pipeline for vote is complete..'
+        stage('test2') {
+          steps {
+            sleep 2
+          }
+        }
+
+      }
     }
- 
-  }
 
+    stage('Docker BnP') {
+      agent any
+      when {
+        branch 'main'
+      }
+      steps {
+        echo 'Packaging vote app with docker'
+        script {
+          docker.withRegistry('https://index.docker.io/v1/', 'dockerlogin') {
+            def voteImage = docker.build("bharathraj45/vote:v${env.BUILD_ID}", "./vote")
+            voteImage.push()
+            voteImage.push("dev")
+            voteImage.push("latest")
+          }
+        }
+
+      }
+    }
+
+  }
+  post {
+    always {
+      echo 'Pipeline for vote is complete..'
+    }
+
+  }
 }
